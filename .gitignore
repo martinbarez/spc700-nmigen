@@ -1,0 +1,9 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+# Yosys-specific
+*.il
+*_bmc/
+*_cover/
+*.gtkw
+*.vcd
