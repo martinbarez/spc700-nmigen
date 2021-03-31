@@ -5,6 +5,7 @@ from nmigen import Cat, Module, Mux
 from nmigen.asserts import Assert
 
 from instruction import Instruction
+from registers import add16
 from snapshot import Snapshot
 
 
@@ -16,9 +17,9 @@ class MOV_A_read(Instruction):
         with m.If(core.cycle == 2):
             m.d.sync += [
                 core.tmp.eq(core.dout),
-                core.reg.PC.eq(core.reg.PC + 1),
+                core.reg.PC.eq(add16(core.reg.PC, 1)),
                 core.enable.eq(1),
-                core.addr.eq(core.reg.PC + 1),
+                core.addr.eq(add16(core.reg.PC, 1)),
                 core.RWB.eq(1),
                 core.cycle.eq(3),
             ]
@@ -37,9 +38,8 @@ class MOV_A_read(Instruction):
                 core.reg.PSW.N.eq(core.dout[7]),
                 core.reg.PSW.Z.eq(~core.dout.any()),
                 core.reg.A.eq(core.dout),
-                core.reg.PC.eq(core.reg.PC + 1),
                 core.enable.eq(1),
-                core.addr.eq(core.reg.PC + 1),
+                core.addr.eq(add16(core.reg.PC, 1)),
                 core.RWB.eq(1),
                 core.cycle.eq(1),
             ]
@@ -66,9 +66,9 @@ class MOV_A_read(Instruction):
         m.d.comb += [
             Assert(data.addresses_read == 4),
             Assert(data.addresses_written == 0),
-            Assert(data.read_addr[0] == data.add16(data.pre.PC, 0)),
-            Assert(data.read_addr[1] == data.add16(data.pre.PC, 1)),
-            Assert(data.read_addr[2] == data.add16(data.pre.PC, 2)),
+            Assert(data.read_addr[0] == add16(data.pre.PC, 0)),
+            Assert(data.read_addr[1] == add16(data.pre.PC, 1)),
+            Assert(data.read_addr[2] == add16(data.pre.PC, 2)),
             Assert(data.read_addr[3] == Cat(data.read_data[1], data.read_data[2])),
         ]
 
@@ -81,9 +81,9 @@ class MOV_A_write(Instruction):
         with m.If(core.cycle == 2):
             m.d.sync += [
                 core.tmp.eq(core.dout),
-                core.reg.PC.eq(core.reg.PC + 1),
+                core.reg.PC.eq(add16(core.reg.PC, 1)),
                 core.enable.eq(1),
-                core.addr.eq(core.reg.PC + 1),
+                core.addr.eq(add16(core.reg.PC, 1)),
                 core.RWB.eq(1),
                 core.cycle.eq(3),
             ]
@@ -109,9 +109,9 @@ class MOV_A_write(Instruction):
 
         with m.If(core.cycle == 5):
             m.d.sync += [
-                core.reg.PC.eq(core.reg.PC + 1),
+                core.reg.PC.eq(add16(core.reg.PC, 1)),
                 core.enable.eq(1),
-                core.addr.eq(core.reg.PC + 1),
+                core.addr.eq(add16(core.reg.PC, 1)),
                 core.RWB.eq(1),
                 core.cycle.eq(1),
             ]
@@ -125,15 +125,15 @@ class MOV_A_write(Instruction):
             Assert(data.post.X == data.pre.X),
             Assert(data.post.Y == data.pre.Y),
             Assert(data.post.SP == data.pre.SP),
-            Assert(data.post.PC == data.add16(data.pre.PC, 3)),
+            Assert(data.post.PC == add16(data.pre.PC, 3)),
             Assert(data.post.PSW == data.pre.PSW),
         ]
         m.d.comb += [
             Assert(data.addresses_read == 3),
             Assert(data.addresses_written == 1),
-            Assert(data.read_addr[0] == data.add16(data.pre.PC, 0)),
-            Assert(data.read_addr[1] == data.add16(data.pre.PC, 1)),
-            Assert(data.read_addr[2] == data.add16(data.pre.PC, 2)),
+            Assert(data.read_addr[0] == add16(data.pre.PC, 0)),
+            Assert(data.read_addr[1] == add16(data.pre.PC, 1)),
+            Assert(data.read_addr[2] == add16(data.pre.PC, 2)),
             Assert(data.write_addr[0] == Cat(data.read_data[1], data.read_data[2])),
             Assert(data.write_data[0] == data.pre.A),
         ]
@@ -147,9 +147,9 @@ class JMP(Instruction):
         with m.If(core.cycle == 2):
             m.d.sync += [
                 core.tmp.eq(core.dout),
-                core.reg.PC.eq(core.reg.PC + 1),
+                core.reg.PC.eq(add16(core.reg.PC, 1)),
                 core.enable.eq(1),
-                core.addr.eq(core.reg.PC + 1),
+                core.addr.eq(add16(core.reg.PC, 1)),
                 core.RWB.eq(1),
                 core.cycle.eq(3),
             ]
@@ -179,7 +179,7 @@ class JMP(Instruction):
         m.d.comb += [
             Assert(data.addresses_read == 3),
             Assert(data.addresses_written == 0),
-            Assert(data.read_addr[0] == data.add16(data.pre.PC, 0)),
-            Assert(data.read_addr[1] == data.add16(data.pre.PC, 1)),
-            Assert(data.read_addr[2] == data.add16(data.pre.PC, 2)),
+            Assert(data.read_addr[0] == add16(data.pre.PC, 0)),
+            Assert(data.read_addr[1] == add16(data.pre.PC, 1)),
+            Assert(data.read_addr[2] == add16(data.pre.PC, 2)),
         ]

@@ -11,12 +11,12 @@ from nmigen.cli import main_parser, main_runner
 from nmigen.sim import Simulator
 
 from instruction import Instruction, implemented
-from registers import Registers
+from registers import Registers, add16
 from snapshot import Snapshot
 
 
 class Core(Elaboratable):
-    def __init__(self, verification: Instruction):
+    def __init__(self, verification: Instruction = None):
         self.enable = Signal(reset=1)
         self.addr = Signal(16)
         self.din = Signal(8)
@@ -25,7 +25,7 @@ class Core(Elaboratable):
 
         # registers
         self.reg = Registers()
-        self.tmp = Signal(8)
+        self.tmp = Signal(8)  # temp signal when reading 16 bits
 
         # internal exec state
         self.opcode = Signal(8)
@@ -45,9 +45,9 @@ class Core(Elaboratable):
             """Fetch the opcode, common for all instr"""
             m.d.sync += [
                 self.opcode.eq(self.dout),
-                self.reg.PC.eq(self.reg.PC + 1),
+                self.reg.PC.eq(add16(self.reg.PC, 1)),
                 self.enable.eq(1),
-                self.addr.eq(self.reg.PC + 1),
+                self.addr.eq(add16(self.reg.PC, 1)),
                 self.RWB.eq(1),
                 self.cycle.eq(2),
             ]
@@ -119,11 +119,11 @@ if __name__ == "__main__":
         # Fake memory
         mem = {
             0x0000: 0x5F,
-            0x0001: 0x12,
-            0x0002: 0x34,
-            0x1234: 0x01,
-            0x1235: 0x02,
-            0x1236: 0x03,
+            0x1000: 0x12,
+            0x2000: 0x34,
+            0x1234: 0x5F,
+            0x1334: 0x00,
+            0x1434: 0x00,
         }
         with m.Switch(core.addr):
             for addr, data in mem.items():

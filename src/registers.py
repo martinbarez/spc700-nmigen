@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from nmigen import Signal
+from nmigen import Cat, Signal, Value
 
 
 class Status:
@@ -70,3 +70,19 @@ class Registers:
             self.PC.eq(other.PC),
             self.PSW.eq(other.PSW),
         ]
+
+
+def add8(value: Value, incr) -> Value:
+    """Add incr to a 8 bit value in little endiann"""
+    if type(incr) is not int:
+        raise TypeError
+    t = Cat(value[4:8], value[0:4]) + incr
+    return Cat(t[4:8], t[0:4])
+
+
+def add16(value: Value, incr: int) -> Value:
+    """Add incr to a 16 bit value in little endiann"""
+    if type(incr) is not int:
+        raise TypeError
+    t = Cat(value[12:16], value[8:12], value[4:8], value[0:4]) + incr
+    return Cat(t[12:16], t[8:12], t[4:8], t[0:4])

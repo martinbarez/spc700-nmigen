@@ -37,12 +37,6 @@ class Snapshot:
         self.read_addr = Array([Signal(16) for _ in range(8)])
         self.read_data = Array([Signal(8) for _ in range(8)])
 
-    def add16(self, v1: Value, v2: Value) -> Value:
-        return (v1 + v2)[:16]
-
-    def add8(self, v1: Value, v2: Value) -> Value:
-        return (v1 + v2)[:8]
-
     def read(self, m: Module, addr: Value, data: Value):
         with m.If(self.addresses_read != 7):
             m.d.sync += self.addresses_read.eq(self.addresses_read + 1)
