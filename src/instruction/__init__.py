@@ -3,7 +3,7 @@
 
 from abc import ABC, abstractmethod
 
-from nmigen import Module, Value
+from nmigen import Module, Signal, Value
 
 from snapshot import Snapshot
 
@@ -16,5 +16,5 @@ class Instruction(ABC):
 
     @staticmethod
     @abstractmethod
-    def check(m: Module, instr: Value, snapshot: Snapshot):
+    def check(m: Module, data: Snapshot, alu: Signal):
         pass

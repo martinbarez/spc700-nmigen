@@ -10,7 +10,7 @@ _absolute = [
     absolute.MOV_A_write,
     # absolute.MOV_X_write,
     # absolute.MOV_Y_write,
-    # absolute.ADC,
+    absolute.ADC,
     # absolute.SBC,
     # absolute.CMP_A,
     # absolute.CMP_X,

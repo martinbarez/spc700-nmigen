@@ -1,9 +1,10 @@
 # absolute.py: Absolute address instructions
 # Copyright (C) 2021 Martín Bárez <martinbarez>
 
-from nmigen import Cat, Module, Mux
-from nmigen.asserts import Assert
+from nmigen import Cat, Const, Module, Signal
+from nmigen.asserts import Assert, Past
 
+from alu import Operation
 from instruction import Instruction
 from registers import add16
 from snapshot import Snapshot
@@ -15,6 +16,7 @@ class MOV_A_read(Instruction):
 
     def synth(core, m: Module):
         with m.If(core.cycle == 2):
+            m.d.comb += core.alu.oper.eq(Operation.NOP)
             m.d.sync += [
                 core.tmp.eq(core.dout),
                 core.reg.PC.eq(add16(core.reg.PC, 1)),
@@ -25,6 +27,7 @@ class MOV_A_read(Instruction):
             ]
 
         with m.If(core.cycle == 3):
+            m.d.comb += core.alu.oper.eq(Operation.NOP)
             m.d.sync += [
                 core.reg.PC.eq(core.reg.PC),
                 core.enable.eq(1),
@@ -34,34 +37,39 @@ class MOV_A_read(Instruction):
             ]
 
         with m.If(core.cycle == 4):
+            m.d.comb += [
+                core.alu.inputa.eq(core.dout),
+                core.alu.inputb.eq(Const(0x00)),
+                core.alu.oper.eq(Operation.OOR),
+            ]
             m.d.sync += [
-                core.reg.PSW.N.eq(core.dout[7]),
-                core.reg.PSW.Z.eq(~core.dout.any()),
-                core.reg.A.eq(core.dout),
+                core.reg.A.eq(core.alu.result),
+                core.reg.PC.eq(add16(core.reg.PC, 1)),
                 core.enable.eq(1),
                 core.addr.eq(add16(core.reg.PC, 1)),
                 core.RWB.eq(1),
                 core.cycle.eq(1),
             ]
 
-    def check(m: Module, data: Snapshot):
+    def check(m: Module, data: Snapshot, alu: Signal):
         m.d.comb += [
             Assert(data.read_data[0].matches(MOV_A_read.opcode)),
         ]
         m.d.comb += [
-            Assert(data.post.A == data.read_data[3]),
+            Assert(Past(alu.oper, 4) == Operation.NOP),
+            Assert(Past(alu.oper, 3) == Operation.NOP),
+            Assert(Past(alu.oper, 2) == Operation.NOP),
+            Assert(Past(alu.oper, 1) == Operation.OOR),
+            Assert(Past(alu.inputa) == data.read_data[3]),
+            Assert(Past(alu.inputb) == 0),
+            Assert(Past(alu.result) == data.read_data[3]),
+        ]
+        m.d.comb += [
+            Assert(data.post.A == Past(alu.result)),
             Assert(data.post.X == data.pre.X),
             Assert(data.post.Y == data.pre.Y),
             Assert(data.post.SP == data.pre.SP),
-            Assert(data.post.PC == data.add16(data.pre.PC, 3)),
-            Assert(data.post.PSW.N == Mux(data.read_data[3].as_signed() < 0, 1, 0)),
-            Assert(data.post.PSW.V == data.pre.PSW.V),
-            Assert(data.post.PSW.P == data.pre.PSW.P),
-            Assert(data.post.PSW.B == data.pre.PSW.B),
-            Assert(data.post.PSW.H == data.pre.PSW.H),
-            Assert(data.post.PSW.I == data.pre.PSW.I),
-            Assert(data.post.PSW.Z == Mux(data.read_data[3] == 0, 1, 0)),
-            Assert(data.post.PSW.C == data.pre.PSW.C),
+            Assert(data.post.PC == add16(data.pre.PC, 3)),
         ]
         m.d.comb += [
             Assert(data.addresses_read == 4),
@@ -79,6 +87,7 @@ class MOV_A_write(Instruction):
 
     def synth(core, m: Module):
         with m.If(core.cycle == 2):
+            m.d.comb += core.alu.oper.eq(Operation.NOP)
             m.d.sync += [
                 core.tmp.eq(core.dout),
                 core.reg.PC.eq(add16(core.reg.PC, 1)),
@@ -89,6 +98,7 @@ class MOV_A_write(Instruction):
             ]
 
         with m.If(core.cycle == 3):
+            m.d.comb += core.alu.oper.eq(Operation.NOP)
             m.d.sync += [
                 core.reg.PC.eq(core.reg.PC),
                 core.enable.eq(1),
@@ -99,6 +109,7 @@ class MOV_A_write(Instruction):
             ]
 
         with m.If(core.cycle == 4):
+            m.d.comb += core.alu.oper.eq(Operation.NOP)
             m.d.sync += [
                 core.reg.PC.eq(core.reg.PC),
                 core.enable.eq(0),
@@ -108,6 +119,7 @@ class MOV_A_write(Instruction):
             ]
 
         with m.If(core.cycle == 5):
+            m.d.comb += core.alu.oper.eq(Operation.NOP)
             m.d.sync += [
                 core.reg.PC.eq(add16(core.reg.PC, 1)),
                 core.enable.eq(1),
@@ -116,9 +128,16 @@ class MOV_A_write(Instruction):
                 core.cycle.eq(1),
             ]
 
-    def check(m: Module, data: Snapshot):
+    def check(m: Module, data: Snapshot, alu: Signal):
         m.d.comb += [
             Assert(data.read_data[0].matches(MOV_A_write.opcode)),
+        ]
+        m.d.comb += [
+            Assert(Past(alu.oper, 5) == Operation.NOP),
+            Assert(Past(alu.oper, 4) == Operation.NOP),
+            Assert(Past(alu.oper, 3) == Operation.NOP),
+            Assert(Past(alu.oper, 2) == Operation.NOP),
+            Assert(Past(alu.oper, 1) == Operation.NOP),
         ]
         m.d.comb += [
             Assert(data.post.A == data.pre.A),
@@ -139,12 +158,13 @@ class MOV_A_write(Instruction):
         ]
 
 
-# JMP    !abs      5F      3 3   --------  PC <- abs     : allows to jump anywhere in the memory space
-class JMP(Instruction):
-    opcode = 0x5F
+# ADC    A, !abs   85      3 4   NV--H-ZC  A += (abs)        + C
+class ADC(Instruction):
+    opcode = 0x85
 
     def synth(core, m: Module):
         with m.If(core.cycle == 2):
+            m.d.comb += core.alu.oper.eq(Operation.NOP)
             m.d.sync += [
                 core.tmp.eq(core.dout),
                 core.reg.PC.eq(add16(core.reg.PC, 1)),
@@ -155,6 +175,78 @@ class JMP(Instruction):
             ]
 
         with m.If(core.cycle == 3):
+            m.d.comb += core.alu.oper.eq(Operation.NOP)
+            m.d.sync += [
+                core.reg.PC.eq(core.reg.PC),
+                core.enable.eq(1),
+                core.addr.eq(Cat(core.tmp, core.dout)),
+                core.RWB.eq(1),
+                core.cycle.eq(4),
+            ]
+
+        with m.If(core.cycle == 4):
+            m.d.comb += [
+                core.alu.inputa.eq(core.reg.A),
+                core.alu.inputb.eq(core.dout),
+                core.alu.oper.eq(Operation.ADC),
+            ]
+
+            m.d.sync += [
+                core.reg.A.eq(core.alu.result),
+                core.reg.PC.eq(add16(core.reg.PC, 1)),
+                core.enable.eq(1),
+                core.addr.eq(add16(core.reg.PC, 1)),
+                core.RWB.eq(1),
+                core.cycle.eq(1),
+            ]
+
+    def check(m: Module, data: Snapshot, alu: Signal):
+        m.d.comb += [
+            Assert(data.read_data[0].matches(ADC.opcode)),
+        ]
+        m.d.comb += [
+            Assert(Past(alu.oper, 4) == Operation.NOP),
+            Assert(Past(alu.oper, 3) == Operation.NOP),
+            Assert(Past(alu.oper, 2) == Operation.NOP),
+            Assert(Past(alu.oper, 1) == Operation.ADC),
+            Assert(Past(alu.inputa) == data.pre.A),
+            Assert(Past(alu.inputb) == data.read_data[3]),
+        ]
+        m.d.comb += [
+            Assert(data.post.A == Past(alu.result)),
+            Assert(data.post.X == data.pre.X),
+            Assert(data.post.Y == data.pre.Y),
+            Assert(data.post.SP == data.pre.SP),
+            Assert(data.post.PC == add16(data.pre.PC, 3)),
+        ]
+        m.d.comb += [
+            Assert(data.addresses_read == 4),
+            Assert(data.addresses_written == 0),
+            Assert(data.read_addr[0] == add16(data.pre.PC, 0)),
+            Assert(data.read_addr[1] == add16(data.pre.PC, 1)),
+            Assert(data.read_addr[2] == add16(data.pre.PC, 2)),
+            Assert(data.read_addr[3] == Cat(data.read_data[1], data.read_data[2])),
+        ]
+
+
+# JMP    !abs      5F      3 3   --------  PC <- abs     : allows to jump anywhere in the memory space
+class JMP(Instruction):
+    opcode = 0x5F
+
+    def synth(core, m: Module):
+        with m.If(core.cycle == 2):
+            m.d.comb += core.alu.oper.eq(Operation.NOP)
+            m.d.sync += [
+                core.tmp.eq(core.dout),
+                core.reg.PC.eq(add16(core.reg.PC, 1)),
+                core.enable.eq(1),
+                core.addr.eq(add16(core.reg.PC, 1)),
+                core.RWB.eq(1),
+                core.cycle.eq(3),
+            ]
+
+        with m.If(core.cycle == 3):
+            m.d.comb += core.alu.oper.eq(Operation.NOP)
             m.d.sync += [
                 core.reg.PC.eq(Cat(core.tmp, core.dout)),
                 core.enable.eq(1),
@@ -163,9 +255,14 @@ class JMP(Instruction):
                 core.cycle.eq(1),
             ]
 
-    def check(m: Module, data: Snapshot):
+    def check(m: Module, data: Snapshot, alu: Signal):
         m.d.comb += [
             Assert(data.read_data[0].matches(JMP.opcode)),
+        ]
+        m.d.comb += [
+            Assert(Past(alu.oper, 3) == Operation.NOP),
+            Assert(Past(alu.oper, 2) == Operation.NOP),
+            Assert(Past(alu.oper, 1) == Operation.NOP),
         ]
         m.d.comb += [
             Assert(data.post.A == data.pre.A),

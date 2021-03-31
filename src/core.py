@@ -10,6 +10,7 @@ from nmigen.build import Platform
 from nmigen.cli import main_parser, main_runner
 from nmigen.sim import Simulator
 
+from alu import ALU, Operation
 from instruction import Instruction, implemented
 from registers import Registers, add16
 from snapshot import Snapshot
@@ -41,8 +42,11 @@ class Core(Elaboratable):
     def elaborate(self, platform: Platform) -> Module:
         m = Module()
 
+        m.submodules.alu = self.alu = ALU()
+
         with m.If(self.cycle == 1):
             """Fetch the opcode, common for all instr"""
+            m.d.comb += self.alu.oper.eq(Operation.NOP)
             m.d.sync += [
                 self.opcode.eq(self.dout),
                 self.reg.PC.eq(add16(self.reg.PC, 1)),
@@ -83,7 +87,7 @@ class Core(Elaboratable):
         with m.If((self.snapshot.taken) & (self.cycle == 1)):
             """at the start of the next instr, check"""
             self.snapshot.post_snapshot(m, self.reg)
-            self.verification.check(m, self.snapshot)
+            self.verification.check(m, self.snapshot, self.alu)
 
 
 if __name__ == "__main__":
@@ -97,6 +101,8 @@ if __name__ == "__main__":
         instr = getattr(instr, args.instr.split(".")[1])
         if instr not in implemented.implemented:
             raise AttributeError()
+
+    instr = implemented.absolute.MOV_A_read
 
     m = Module()
     m.submodules.core = core = Core(instr)
