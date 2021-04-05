@@ -5,7 +5,7 @@ from enum import Enum
 from typing import List, Optional
 
 from nmigen import Cat, Const, Elaboratable, Module, ResetSignal, Signal
-from nmigen.asserts import Assert, Assume, Initial
+from nmigen.asserts import Assert, Assume, Cover, Initial, Past
 from nmigen.build import Platform
 from nmigen.cli import main_parser, main_runner
 from nmigen.sim import Simulator
@@ -14,22 +14,23 @@ from registers import Status
 
 
 class Operation(Enum):
-    NOP = 0x0
-    ADC = 0x1
-    SBC = 0x2
-    CMP = 0x3
-    AND = 0x4
-    OOR = 0x5  # also for MOV with inputb as zero
-    EOR = 0x6
-    INC = 0x7
-    DEC = 0x8
-    ASL = 0x9
-    LSR = 0xA
-    ROL = 0xB
-    ROR = 0xC
-    XCN = 0xD
-    DAA = 0xE
-    DAS = 0xF
+    NOP = 0x00
+    ADC = 0x01
+    SBC = 0x02
+    CMP = 0x03
+    AND = 0x04
+    OOR = 0x05  # also for MOV with inputb as zero
+    EOR = 0x06
+    INC = 0x07
+    DEC = 0x08
+    ASL = 0x09
+    LSR = 0x0A
+    ROL = 0x0B
+    ROR = 0x0C
+    XCN = 0x0D
+    DAA = 0x0E
+    DAS = 0x0F
+    MUL = 0x10
 
 
 # TODO
@@ -50,6 +51,10 @@ class ALU_big(Elaboratable):
 
         self.result = Signal().like(self.result)
         self._psw = Status()
+
+        # sync domain
+        self.count = Signal(range(12), reset=0)
+        self.sum = Signal(16, reset=0)  # for multiplication
 
         self.verification = verification
 
@@ -453,6 +458,84 @@ class ALU_big(Elaboratable):
                 if self.verification is Operation.DAS:
                     with m.If(~Initial()):
                         m.d.comb += [Assert(False)]
+
+            # could be optimized with shift to right
+            with m.Case(Operation.MUL):
+                with m.Switch(self.count):
+                    with m.Case(0):
+                        prod = self.inputa * self.inputb[0]
+                        prod = Cat(prod[0:7], ~prod[7], Const(1))
+                        m.d.sync += self.sum.eq(self.sum + (prod << 0))
+                        m.d.sync += self.count.eq(0 + 1)
+                    for i in range(1, 7):
+                        with m.Case(i):
+                            prod = self.inputa * self.inputb[i]
+                            prod = Cat(prod[0:7], ~prod[7])
+                            m.d.sync += self.sum.eq(self.sum + (prod << i))
+                            m.d.sync += self.count.eq(i + 1)
+                    with m.Case(7):
+                        prod = self.inputa * self.inputb[7]
+                        prod = Cat(~prod[0:7], prod[7], Const(1))
+                        m.d.sync += self.sum.eq(self.sum + (prod << 7))
+                        m.d.sync += self.count.eq(8)
+                    with m.Case(8):
+                        m.d.sync += self.sum.eq(self.sum >> 8)
+                        m.d.sync += self.count.eq(9)
+                        m.d.comb += [
+                            self.result.eq(self.sum[0:8]),
+                            self._psw.Z.eq(self.sum[0:8] == 0),
+                        ]
+                    with m.Case(9):
+                        m.d.sync += self.sum.eq(0)
+                        m.d.sync += self.count.eq(0)
+                        m.d.comb += [
+                            self.result.eq(self.sum[0:8]),
+                            self._psw.N.eq(self.sum[0:8].as_signed() < 0),
+                            self._psw.Z.eq((self.sum[0:8] == 0) & self.PSW.Z),
+                        ]
+                if self.verification is Operation.MUL:
+                    r = Signal(16)
+                    m.d.comb += [
+                        r.eq(self.inputa.as_signed() * self.inputb.as_signed()),
+                    ]
+                    with m.If(~Initial() & (self.count == 8)):
+                        m.d.comb += [
+                            Assert(self.result == r[0:8]),
+                            Assert(self._psw.N == self.PSW.N),
+                            Assert(self._psw.V == self.PSW.V),
+                            Assert(self._psw.P == self.PSW.P),
+                            Assert(self._psw.B == self.PSW.B),
+                            Assert(self._psw.H == self.PSW.H),
+                            Assert(self._psw.I == self.PSW.I),
+                            Assert(self._psw.Z == ~(r[0:8].bool())),
+                            Assert(self._psw.C == self.PSW.C),
+                        ]
+                    with m.If(~Initial() & (self.count == 9)):
+                        m.d.comb += [
+                            Assert(self.result == r[8:16]),
+                            Assert(self._psw.N == r[15]),
+                            Assert(self._psw.V == self.PSW.V),
+                            Assert(self._psw.P == self.PSW.P),
+                            Assert(self._psw.B == self.PSW.B),
+                            Assert(self._psw.H == self.PSW.H),
+                            Assert(self._psw.I == self.PSW.I),
+                            Assert(self._psw.Z == ~(r.bool())),
+                            Assert(self._psw.C == self.PSW.C),
+                        ]
+                    with m.If(~Initial() & (self.count == 0)):
+                        m.d.comb += [
+                            Assert(self.sum == 0),
+                            Assert((Past(self.count) == 0) | (Past(self.count) == 9)),
+                        ]
+                    with m.If(~Initial() & (self.count != 0)):
+                        m.d.comb += [
+                            Assert(self.count == Past(self.count) + 1),
+                            Assume(self.inputa == Past(self.inputa)),
+                            Assume(self.inputb == Past(self.inputb)),
+                        ]
+                    # covering all states and asserting count=past+1 means all go in order
+                    for i in range(10):
+                        m.d.comb += Cover(self.count == i)
 
         return m
 
