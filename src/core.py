@@ -4,7 +4,7 @@
 from sys import modules
 from typing import List, Optional
 
-from nmigen import ClockSignal, Elaboratable, Module, ResetSignal, Signal
+from nmigen import ClockSignal, Elaboratable, Module, Mux, ResetSignal, Signal
 from nmigen.asserts import AnyConst, Assume, Cover, Fell, Initial
 from nmigen.build import Platform
 from nmigen.cli import main_parser, main_runner
@@ -44,25 +44,22 @@ class Core(Elaboratable):
 
         m.submodules.alu = self.alu = ALU()
 
-        with m.If(self.cycle == 1):
-            """Fetch the opcode, common for all instr"""
-            m.d.comb += self.alu.oper.eq(Operation.NOP)
-            m.d.sync += [
-                self.opcode.eq(self.dout),
-                self.reg.PC.eq(add16(self.reg.PC, 1)),
-                self.enable.eq(1),
-                self.addr.eq(add16(self.reg.PC, 1)),
-                self.RWB.eq(1),
-                self.cycle.eq(2),
-            ]
-        with m.Else():
-            """Execute"""
-            with m.Switch(self.opcode):
-                for i in implemented.implemented:
-                    with m.Case(i.opcode):
-                        i.synth(self, m)
-                with m.Default():
-                    m.d.sync += self.cycle.eq(1)
+        """Fetch the opcode, common for all instr"""
+        m.d.sync += self.opcode.eq(Mux(self.cycle == 1, self.dout, self.opcode))
+
+        with m.Switch(Mux(self.cycle == 1, self.dout, self.opcode)):
+            for i in implemented.implemented:
+                with m.Case(i.opcode):
+                    i.synth(self, m)
+            with m.Default():
+                m.d.comb += core.alu.oper.eq(Operation.NOP)
+                m.d.sync += [
+                    core.reg.PC.eq(add16(core.reg.PC, 1)),
+                    core.enable.eq(1),
+                    core.addr.eq(add16(core.reg.PC, 1)),
+                    core.RWB.eq(1),
+                    core.cycle.eq(1),
+                ]
 
         if self.verification is not None:
             self.verify(m)

@@ -1,7 +1,7 @@
 # implemented.py: A list with all implemented instructions
 # Copyright (C) 2021 Martín Bárez <martinbarez>
 
-from . import absolute
+from . import absolute, implied
 
 # !abs
 _absolute = [
@@ -219,7 +219,7 @@ _implied = [
     # ROL,  # 3C
     # ROR,  # 7C
     # implied.XCN,  # 9F
-    # implied.MUL,  # CF
+    implied.MUL,  # CF
     # implied.DIV,  # 9E
     # implied.DAA,  # DF
     # implied.DAS,  # BE

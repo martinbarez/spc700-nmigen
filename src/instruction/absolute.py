@@ -15,6 +15,15 @@ class MOV_A_read(Instruction):
     opcode = 0xE5
 
     def synth(core, m: Module):
+        with m.If(core.cycle == 1):
+            m.d.comb += core.alu.oper.eq(Operation.NOP)
+            m.d.sync += [
+                core.reg.PC.eq(add16(core.reg.PC, 1)),
+                core.enable.eq(1),
+                core.addr.eq(add16(core.reg.PC, 1)),
+                core.RWB.eq(1),
+                core.cycle.eq(2),
+            ]
         with m.If(core.cycle == 2):
             m.d.comb += core.alu.oper.eq(Operation.NOP)
             m.d.sync += [
@@ -86,6 +95,15 @@ class MOV_A_write(Instruction):
     opcode = 0xC5
 
     def synth(core, m: Module):
+        with m.If(core.cycle == 1):
+            m.d.comb += core.alu.oper.eq(Operation.NOP)
+            m.d.sync += [
+                core.reg.PC.eq(add16(core.reg.PC, 1)),
+                core.enable.eq(1),
+                core.addr.eq(add16(core.reg.PC, 1)),
+                core.RWB.eq(1),
+                core.cycle.eq(2),
+            ]
         with m.If(core.cycle == 2):
             m.d.comb += core.alu.oper.eq(Operation.NOP)
             m.d.sync += [
@@ -163,6 +181,15 @@ class ADC(Instruction):
     opcode = 0x85
 
     def synth(core, m: Module):
+        with m.If(core.cycle == 1):
+            m.d.comb += core.alu.oper.eq(Operation.NOP)
+            m.d.sync += [
+                core.reg.PC.eq(add16(core.reg.PC, 1)),
+                core.enable.eq(1),
+                core.addr.eq(add16(core.reg.PC, 1)),
+                core.RWB.eq(1),
+                core.cycle.eq(2),
+            ]
         with m.If(core.cycle == 2):
             m.d.comb += core.alu.oper.eq(Operation.NOP)
             m.d.sync += [
@@ -234,6 +261,15 @@ class JMP(Instruction):
     opcode = 0x5F
 
     def synth(core, m: Module):
+        with m.If(core.cycle == 1):
+            m.d.comb += core.alu.oper.eq(Operation.NOP)
+            m.d.sync += [
+                core.reg.PC.eq(add16(core.reg.PC, 1)),
+                core.enable.eq(1),
+                core.addr.eq(add16(core.reg.PC, 1)),
+                core.RWB.eq(1),
+                core.cycle.eq(2),
+            ]
         with m.If(core.cycle == 2):
             m.d.comb += core.alu.oper.eq(Operation.NOP)
             m.d.sync += [

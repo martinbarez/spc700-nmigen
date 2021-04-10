@@ -15,7 +15,7 @@ Regarding [nMigen](https://github.com/nmigen/nmigen), documentation is still a b
 
 - [x] Formal verification framework
 - [ ] Implement the ALU
-- [ ] Implement all instructions (3/256)
+- [ ] Implement all instructions (4/256)
 - [ ] Connect the RAM
 - [ ] Implement the DSP
 
