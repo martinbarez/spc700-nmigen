@@ -102,8 +102,6 @@ if __name__ == "__main__":
         if instr not in implemented.implemented:
             raise AttributeError()
 
-    instr = implemented.absolute.MOV_A_read
-
     m = Module()
     m.submodules.core = core = Core(instr)
 

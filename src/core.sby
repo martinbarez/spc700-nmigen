@@ -20,7 +20,7 @@ bmc
 [options]
 cover: mode cover
 bmc: mode bmc
-depth 12
+depth 20
 multiclock off
 
 [engines]
