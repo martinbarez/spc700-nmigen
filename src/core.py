@@ -5,7 +5,7 @@ from sys import modules
 from typing import List, Optional
 
 from nmigen import ClockSignal, Elaboratable, Module, ResetSignal, Signal
-from nmigen.asserts import Assume, Cover, Fell
+from nmigen.asserts import AnyConst, Assume, Cover, Fell, Initial
 from nmigen.build import Platform
 from nmigen.cli import main_parser, main_runner
 from nmigen.sim import Simulator
@@ -67,6 +67,25 @@ class Core(Elaboratable):
         if self.verification is not None:
             self.verify(m)
 
+            with m.If(Initial()):
+                m.d.sync += [
+                    self.reg.A.eq(AnyConst(8)),
+                    self.reg.X.eq(AnyConst(8)),
+                    self.reg.Y.eq(AnyConst(8)),
+                    self.reg.SP.eq(AnyConst(16)),
+                    self.reg.PC.eq(AnyConst(16)),
+                ]
+                m.d.sync += [
+                    self.reg.PSW.N.eq(AnyConst(1)),
+                    self.reg.PSW.V.eq(AnyConst(1)),
+                    self.reg.PSW.P.eq(AnyConst(1)),
+                    self.reg.PSW.B.eq(AnyConst(1)),
+                    self.reg.PSW.H.eq(AnyConst(1)),
+                    self.reg.PSW.I.eq(AnyConst(1)),
+                    self.reg.PSW.Z.eq(AnyConst(1)),
+                    self.reg.PSW.C.eq(AnyConst(1)),
+                ]
+
         return m
 
     def verify(self, m: Module):
@@ -109,10 +128,17 @@ if __name__ == "__main__":
         time = Signal(6, reset_less=True)
         m.d.sync += time.eq(time + 1)
 
+        with m.If(Initial()):
+            m.d.sync += Assume(ResetSignal())
+        with m.Else():
+            m.d.sync += Assume(~ResetSignal())
+
+        # A time slot delayed because PC and addr need to sync
         with m.If(time == 2):
+            m.d.sync += Assume(~core.snapshot.taken)
+        with m.If(time == 3):
             m.d.sync += Cover(core.snapshot.taken)
             m.d.sync += Assume(core.snapshot.taken)
-        m.d.sync += Assume(ResetSignal() == 0)
         m.d.sync += Cover(Fell(core.snapshot.taken))
 
         main_runner(

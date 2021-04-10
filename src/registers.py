@@ -8,14 +8,14 @@ from nmigen import Cat, Signal, Value
 
 class Status:
     def __init__(self):
-        self.N = Signal()  # Negative
-        self.V = Signal()  # oVerflow
-        self.P = Signal()  # direct Page
-        self.B = Signal()  # Break
-        self.H = Signal()  # Half carry
-        self.I = Signal()  # Interrupt enabled (unused)
-        self.Z = Signal()  # Zero
-        self.C = Signal()  # Carry
+        self.N = Signal(reset_less=True)  # Negative
+        self.V = Signal(reset_less=True)  # oVerflow
+        self.P = Signal(reset_less=True)  # direct Page
+        self.B = Signal(reset_less=True)  # Break
+        self.H = Signal(reset_less=True)  # Half carry
+        self.I = Signal(reset_less=True)  # Interrupt enabled (unused)
+        self.Z = Signal(reset_less=True)  # Zero
+        self.C = Signal(reset_less=True)  # Carry
 
     def __eq__(self, other: Status):
         return (
@@ -44,11 +44,11 @@ class Status:
 
 class Registers:
     def __init__(self):
-        self.A = Signal(8)
-        self.X = Signal(8)
-        self.Y = Signal(8)
-        self.SP = Signal(8)
-        self.PC = Signal(16)
+        self.A = Signal(8, reset_less=True)
+        self.X = Signal(8, reset_less=True)
+        self.Y = Signal(8, reset_less=True)
+        self.SP = Signal(8, reset_less=True)
+        self.PC = Signal(16, reset_less=True)
         self.PSW = Status()
 
     def __eq__(self, other: Registers):
