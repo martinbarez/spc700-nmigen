@@ -462,22 +462,17 @@ class ALU_big(Elaboratable):
             # could be optimized with shift to right
             with m.Case(Operation.MUL):
                 with m.Switch(self.count):
-                    with m.Case(0):
-                        prod = self.inputa * self.inputb[0]
-                        prod = Cat(prod[0:7], ~prod[7], Const(1))
-                        m.d.sync += self.sum.eq(self.sum + (prod << 0))
-                        m.d.sync += self.count.eq(0 + 1)
-                    for i in range(1, 7):
+                    for i in range(0, 8):
                         with m.Case(i):
                             prod = self.inputa * self.inputb[i]
-                            prod = Cat(prod[0:7], ~prod[7])
+                            if i == 0:
+                                prod = Cat(prod[0:7], ~prod[7], Const(1))
+                            elif i == 7:
+                                prod = Cat(~prod[0:7], prod[7], Const(1))
+                            else:
+                                prod = Cat(prod[0:7], ~prod[7])
                             m.d.sync += self.sum.eq(self.sum + (prod << i))
                             m.d.sync += self.count.eq(i + 1)
-                    with m.Case(7):
-                        prod = self.inputa * self.inputb[7]
-                        prod = Cat(~prod[0:7], prod[7], Const(1))
-                        m.d.sync += self.sum.eq(self.sum + (prod << 7))
-                        m.d.sync += self.count.eq(8)
                     with m.Case(8):
                         m.d.sync += self.sum.eq(self.sum >> 8)
                         m.d.sync += self.count.eq(9)
@@ -496,21 +491,11 @@ class ALU_big(Elaboratable):
                     r = Signal(16)
                     m.d.comb += [
                         r.eq(self.inputa.as_signed() * self.inputb.as_signed()),
+                        Cover(self.count == 9),
                     ]
-                    with m.If(~Initial() & (self.count == 8)):
+                    with m.If(self.count == 9):
                         m.d.comb += [
-                            Assert(self.result == r[0:8]),
-                            Assert(self._psw.N == self.PSW.N),
-                            Assert(self._psw.V == self.PSW.V),
-                            Assert(self._psw.P == self.PSW.P),
-                            Assert(self._psw.B == self.PSW.B),
-                            Assert(self._psw.H == self.PSW.H),
-                            Assert(self._psw.I == self.PSW.I),
-                            Assert(self._psw.Z == self.PSW.Z),
-                            Assert(self._psw.C == self.PSW.C),
-                        ]
-                    with m.If(~Initial() & (self.count == 9)):
-                        m.d.comb += [
+                            Assert(Past(self.result) == r[0:8]),
                             Assert(self.result == r[8:16]),
                             Assert(self._psw.N == r[15]),
                             Assert(self._psw.V == self.PSW.V),
@@ -532,9 +517,6 @@ class ALU_big(Elaboratable):
                             Assume(self.inputa == Past(self.inputa)),
                             Assume(self.inputb == Past(self.inputb)),
                         ]
-                    # covering all states and asserting count=past+1 means all go in order
-                    for i in range(10):
-                        m.d.comb += Cover(self.count == i)
 
         return m
 
