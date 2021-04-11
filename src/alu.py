@@ -483,7 +483,6 @@ class ALU_big(Elaboratable):
                         m.d.sync += self.count.eq(9)
                         m.d.comb += [
                             self.result.eq(self.sum[0:8]),
-                            self._psw.Z.eq(self.sum[0:8] == 0),
                         ]
                     with m.Case(9):
                         m.d.sync += self.sum.eq(0)
@@ -491,7 +490,7 @@ class ALU_big(Elaboratable):
                         m.d.comb += [
                             self.result.eq(self.sum[0:8]),
                             self._psw.N.eq(self.sum[0:8].as_signed() < 0),
-                            self._psw.Z.eq((self.sum[0:8] == 0) & self.PSW.Z),
+                            self._psw.Z.eq(self.sum[0:8] == 0),
                         ]
                 if self.verification is Operation.MUL:
                     r = Signal(16)
@@ -507,7 +506,7 @@ class ALU_big(Elaboratable):
                             Assert(self._psw.B == self.PSW.B),
                             Assert(self._psw.H == self.PSW.H),
                             Assert(self._psw.I == self.PSW.I),
-                            Assert(self._psw.Z == ~(r[0:8].bool())),
+                            Assert(self._psw.Z == self.PSW.Z),
                             Assert(self._psw.C == self.PSW.C),
                         ]
                     with m.If(~Initial() & (self.count == 9)):
@@ -519,7 +518,7 @@ class ALU_big(Elaboratable):
                             Assert(self._psw.B == self.PSW.B),
                             Assert(self._psw.H == self.PSW.H),
                             Assert(self._psw.I == self.PSW.I),
-                            Assert(self._psw.Z == ~(r.bool())),
+                            Assert(self._psw.Z == ~(r[8:16].bool())),
                             Assert(self._psw.C == self.PSW.C),
                         ]
                     with m.If(~Initial() & (self.count == 0)):
