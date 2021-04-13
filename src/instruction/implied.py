@@ -36,7 +36,7 @@ class MUL(Instruction):
             ]
 
             m.d.sync += [
-                core.reg.A.eq(core.alu.result),
+                core.reg.Y.eq(core.alu.result),
                 core.enable.eq(0),
                 core.reg.PC.eq(core.reg.PC),
                 core.addr.eq(core.reg.PC),
@@ -50,7 +50,7 @@ class MUL(Instruction):
             ]
 
             m.d.sync += [
-                core.reg.Y.eq(core.alu.result),
+                core.reg.A.eq(core.alu.result),
                 core.enable.eq(1),
                 core.reg.PC.eq(add16(core.reg.PC, 1)),
                 core.addr.eq(add16(core.reg.PC, 1)),
@@ -72,9 +72,9 @@ class MUL(Instruction):
                 Assert(Past(alu.inputb, i) == data.pre.A),
             ]
         m.d.comb += [
-            Assert(data.post.A == Past(alu.result, 2)),
+            Assert(data.post.A == Past(alu.result, 1)),
             Assert(data.post.X == data.pre.X),
-            Assert(data.post.Y == Past(alu.result, 1)),
+            Assert(data.post.Y == Past(alu.result, 2)),
             Assert(data.post.SP == data.pre.SP),
             Assert(data.post.PC == add16(data.pre.PC, 1)),
         ]

@@ -53,8 +53,10 @@ class ALU_big(Elaboratable):
         self._psw = Status()
 
         # sync domain
-        self.count = Signal(range(12), reset=0)
-        self.sum = Signal(16, reset=0)  # for multiplication
+        self.count = Signal(range(16), reset=0)
+        self.partial = Signal(16, reset=0)  # partial result
+        self.partial_hi = self.partial[8:16]
+        self.partial_lo = self.partial[0:8]
 
         self.verification = verification
 
@@ -471,21 +473,21 @@ class ALU_big(Elaboratable):
                                 prod = Cat(~prod[0:7], prod[7], Const(1))
                             else:
                                 prod = Cat(prod[0:7], ~prod[7])
-                            m.d.sync += self.sum.eq(self.sum + (prod << i))
+                            m.d.sync += self.partial.eq(self.partial + (prod << i))
                             m.d.sync += self.count.eq(i + 1)
                     with m.Case(8):
-                        m.d.sync += self.sum.eq(self.sum >> 8)
+                        m.d.sync += self.partial_hi.eq(self.partial_lo)
                         m.d.sync += self.count.eq(9)
                         m.d.comb += [
-                            self.result.eq(self.sum[0:8]),
+                            self.result.eq(self.partial_hi),
+                            self._psw.N.eq(self.partial_hi.as_signed() < 0),
+                            self._psw.Z.eq(self.partial_hi == 0),
                         ]
                     with m.Case(9):
-                        m.d.sync += self.sum.eq(0)
+                        m.d.sync += self.partial.eq(0)
                         m.d.sync += self.count.eq(0)
                         m.d.comb += [
-                            self.result.eq(self.sum[0:8]),
-                            self._psw.N.eq(self.sum[0:8].as_signed() < 0),
-                            self._psw.Z.eq(self.sum[0:8] == 0),
+                            self.result.eq(self.partial_hi),
                         ]
                 if self.verification is Operation.MUL:
                     r = Signal(16)
@@ -495,8 +497,8 @@ class ALU_big(Elaboratable):
                     ]
                     with m.If(self.count == 9):
                         m.d.comb += [
-                            Assert(Past(self.result) == r[0:8]),
-                            Assert(self.result == r[8:16]),
+                            Assert(Past(self.result) == r[8:16]),
+                            Assert(self.result == r[0:8]),
                             Assert(self._psw.N == r[15]),
                             Assert(self._psw.V == self.PSW.V),
                             Assert(self._psw.P == self.PSW.P),
@@ -508,7 +510,7 @@ class ALU_big(Elaboratable):
                         ]
                     with m.If(~Initial() & (self.count == 0)):
                         m.d.comb += [
-                            Assert(self.sum == 0),
+                            Assert(self.partial == 0),
                             Assert((Past(self.count) == 0) | (Past(self.count) == 9)),
                         ]
                     with m.If(~Initial() & (self.count != 0)):
