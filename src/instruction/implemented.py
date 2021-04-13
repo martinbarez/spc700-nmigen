@@ -220,7 +220,7 @@ _implied = [
     # ROR,  # 7C
     # implied.XCN,  # 9F
     implied.MUL,  # CF
-    # implied.DIV,  # 9E
+    implied.DIV,  # 9E
     # implied.DAA,  # DF
     # implied.DAS,  # BE
     # implied.CLRC,  # 60

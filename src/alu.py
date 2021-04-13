@@ -4,7 +4,7 @@
 from enum import Enum
 from typing import List, Optional
 
-from nmigen import Cat, Const, Elaboratable, Module, ResetSignal, Signal
+from nmigen import Cat, Const, Elaboratable, Module, Mux, ResetSignal, Signal
 from nmigen.asserts import Assert, Assume, Cover, Initial, Past
 from nmigen.build import Platform
 from nmigen.cli import main_parser, main_runner
@@ -31,6 +31,7 @@ class Operation(Enum):
     DAA = 0x0E
     DAS = 0x0F
     MUL = 0x10
+    DIV = 0x11
 
 
 # TODO
@@ -519,6 +520,68 @@ class ALU_big(Elaboratable):
                             Assume(self.inputa == Past(self.inputa)),
                             Assume(self.inputb == Past(self.inputb)),
                         ]
+
+            with m.Case(Operation.DIV):
+                over = Signal(reset=0)
+                with m.Switch(self.count):
+                    with m.Case(0):
+                        m.d.sync += self.partial_hi.eq(self.inputa)  # Y
+                        m.d.sync += self.count.eq(1)
+
+                    with m.Case(1):
+                        m.d.sync += self.partial_lo.eq(self.inputa)  # A
+                        m.d.sync += self.count.eq(2)
+                        m.d.comb += self._psw.H.eq(
+                            Mux(self.partial_hi[0:4] >= self.inputb[0:4], 1, 0)
+                        )
+
+                    for i in range(2, 11):
+                        with m.Case(i):
+                            tmp1_w = Cat(self.partial << 1, over)
+                            tmp1_x = Signal(17)
+                            tmp1_y = Signal(17)
+                            tmp1_z = Signal(17)
+                            tmp2 = self.inputb << 9
+
+                            m.d.comb += tmp1_x.eq(tmp1_w)
+                            with m.If(tmp1_w & 0x20000):
+                                m.d.comb += tmp1_x.eq((tmp1_w & 0x1FFFF) | 1)
+
+                            m.d.comb += tmp1_y.eq(tmp1_x)
+                            with m.If(tmp1_x >= tmp2):
+                                m.d.comb += tmp1_y.eq(tmp1_x ^ 1)
+
+                            m.d.comb += tmp1_z.eq(tmp1_y)
+                            with m.If(tmp1_y & 1):
+                                m.d.comb += tmp1_z.eq((tmp1_y - tmp2) & 0x1FFFF)
+
+                            m.d.sync += Cat(self.partial, over).eq(tmp1_z)
+
+                            m.d.sync += self.count.eq(i + 1)
+
+                    with m.Case(11):
+                        m.d.sync += self.count.eq(12)
+                        m.d.comb += [
+                            self.result.eq((Cat(self.partial, over) >> 9)),  # Y %
+                        ]
+
+                    with m.Case(12):
+                        m.d.sync += self.partial.eq(0)
+                        m.d.sync += over.eq(0)
+                        m.d.sync += self.count.eq(0)
+                        m.d.comb += [
+                            self.result.eq(self.partial_lo),  # A /
+                            self._psw.N.eq(self.partial_lo.as_signed() < 0),
+                            self._psw.V.eq(over),
+                            self._psw.Z.eq(self.partial_lo == 0),
+                        ]
+
+                if self.verification is Operation.DIV:
+                    m.d.comb += [
+                        Cover(self.count == 12),
+                    ]
+                    with m.If(self.count == 12):
+                        m.d.comb += [Assert(False)]
 
         return m
 
