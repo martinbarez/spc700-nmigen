@@ -56,6 +56,7 @@ class ALU_big(Elaboratable):
         # sync domain
         self.count = Signal(range(16), reset=0)
         self.partial = Signal(16, reset=0)  # partial result
+        self.carry = Signal(reset=0)
         self.partial_hi = self.partial[8:16]
         self.partial_lo = self.partial[0:8]
 
@@ -522,7 +523,6 @@ class ALU_big(Elaboratable):
                         ]
 
             with m.Case(Operation.DIV):
-                over = Signal(reset=0)
                 with m.Switch(self.count):
                     with m.Case(0):
                         m.d.sync += self.partial_hi.eq(self.inputa)  # Y
@@ -537,7 +537,7 @@ class ALU_big(Elaboratable):
 
                     for i in range(2, 11):
                         with m.Case(i):
-                            tmp1_w = Cat(self.partial << 1, over)
+                            tmp1_w = Cat(self.partial << 1, self.carry)
                             tmp1_x = Signal(17)
                             tmp1_y = Signal(17)
                             tmp1_z = Signal(17)
@@ -555,24 +555,24 @@ class ALU_big(Elaboratable):
                             with m.If(tmp1_y & 1):
                                 m.d.comb += tmp1_z.eq((tmp1_y - tmp2) & 0x1FFFF)
 
-                            m.d.sync += Cat(self.partial, over).eq(tmp1_z)
+                            m.d.sync += Cat(self.partial, self.carry).eq(tmp1_z)
 
                             m.d.sync += self.count.eq(i + 1)
 
                     with m.Case(11):
                         m.d.sync += self.count.eq(12)
                         m.d.comb += [
-                            self.result.eq((Cat(self.partial, over) >> 9)),  # Y %
+                            self.result.eq((Cat(self.partial, self.carry) >> 9)),  # Y %
                         ]
 
                     with m.Case(12):
                         m.d.sync += self.partial.eq(0)
-                        m.d.sync += over.eq(0)
+                        m.d.sync += self.carry.eq(0)
                         m.d.sync += self.count.eq(0)
                         m.d.comb += [
                             self.result.eq(self.partial_lo),  # A /
                             self._psw.N.eq(self.partial_lo.as_signed() < 0),
-                            self._psw.V.eq(over),
+                            self._psw.V.eq(self.carry),
                             self._psw.Z.eq(self.partial_lo == 0),
                         ]
 
